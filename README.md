@@ -78,10 +78,29 @@ cs-spawn   # opens a folder picker
 ### Managing instances
 
 ```bash
-cs-stop          # list running instances
-cs-stop my-repo  # stop by name
-cs-stop --all    # stop all
+cs-stop              # list running + stopped sessions
+cs-stop my-repo      # stop by name (preserves session state)
+cs-stop --all        # stop all running
+cs-stop --purge repo # stop + delete all state for a session
+cs-stop --purge-all  # nuclear option
 ```
+
+### Session persistence
+
+Sessions survive process death. When a code-server instance is stopped or crashes:
+
+- **Editor state is preserved** — open files, unsaved changes, layout, terminal history all persist in a per-repo data directory (`~/.cs-spawn/data/`)
+- **Port is reused** — re-spawning a repo reuses its previous port, so existing Chrome tabs auto-reconnect
+- **Chrome extension detects dead servers** — tabs are redirected to a reconnect page with a one-click restart button that auto-redirects back once the server is up
+
+#### Resurrect dead sessions
+
+```bash
+cs-spawn --resurrect          # restart all dead sessions
+cs-spawn --resurrect=abcd1234 # restart a specific session by hash
+```
+
+Session hashes are shown by `cs-stop` in the stopped sessions list.
 
 ## How it works
 
@@ -97,7 +116,9 @@ Chrome popup / bookmark (codeserver://open?repo=...)
 ## Files
 
 ```
-~/.cs-spawn/                  # PID files, port files, logs
+~/.cs-spawn/                  # PID files, port files, logs, session metadata
+~/.cs-spawn/data/<hash>/      # per-repo VS Code state (editors, settings, etc.)
+~/.cs-spawn/<hash>.session    # session metadata (survives process death)
 ~/.local/bin/cs-spawn         # main spawn script
 ~/.local/bin/cs-stop          # instance manager
 ~/.local/bin/cs-spawn-from-url  # URL parser for scheme handler

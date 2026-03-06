@@ -7,9 +7,11 @@ APP_DIR="${HOME}/Applications/CodeServerSpawn.app"
 
 mkdir -p "$INSTALL_DIR"
 
-# --- Install the spawn script ---
+# --- Install scripts ---
 cp cs-spawn.sh "$INSTALL_DIR/cs-spawn"
-chmod +x "$INSTALL_DIR/cs-spawn"
+cp cs-stop.sh "$INSTALL_DIR/cs-stop"
+cp cs-spawn-from-url.sh "$INSTALL_DIR/cs-spawn-from-url"
+chmod +x "$INSTALL_DIR/cs-spawn" "$INSTALL_DIR/cs-stop" "$INSTALL_DIR/cs-spawn-from-url"
 
 # --- Ensure it's on PATH ---
 if ! echo "$PATH" | grep -q "$INSTALL_DIR"; then

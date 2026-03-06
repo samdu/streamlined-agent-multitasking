@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+  }
+  .card {
+    text-align: center;
+    max-width: 420px;
+    padding: 40px;
+  }
+  .icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.6;
+  }
+  h1 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #e6edf3;
+  }
+  .repo-name {
+    font-family: "SF Mono", "Fira Code", monospace;
+    color: #58a6ff;
+    font-size: 15px;
+    margin-bottom: 16px;
+  }
+  .status {
+    font-size: 13px;
+    color: #484f58;
+    margin-bottom: 24px;
+    min-height: 20px;
+  }
+  .status.alive { color: #3fb950; }
+  .status.polling { color: #d29922; }
+  button {
+    background: #238636;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button:hover { background: #2ea043; }
+  button:disabled {
+    background: #21262d;
+    color: #484f58;
+    cursor: default;
+  }
+  .hint {
+    margin-top: 16px;
+    font-size: 11px;
+    color: #484f58;
+  }
+  .hint kbd {
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: inherit;
+  }
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #484f58;
+    border-top-color: #d29922;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">⏻</div>
+    <h1>Session disconnected</h1>
+    <div class="repo-name" id="repo-name"></div>
+    <div class="status" id="status">Server process is not running</div>
+    <button id="reconnect-btn">Restart server</button>
+    <div class="hint" id="hint">Session state (open files, unsaved changes) will be restored</div>
+  </div>
+  <script src="reconnect.js"></script>
+</body>
+</html>
