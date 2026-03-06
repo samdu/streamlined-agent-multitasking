@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 320px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 13px;
+    color: #c9d1d9;
+    background: #0d1117;
+  }
+  #input-wrap {
+    padding: 10px;
+  }
+  input {
+    width: 100%;
+    padding: 8px 10px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    color: #c9d1d9;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 13px;
+    outline: none;
+  }
+  input:focus { border-color: #58a6ff; }
+  input::placeholder { color: #484f58; }
+  .hint {
+    padding: 0 10px 8px;
+    font-size: 11px;
+    color: #484f58;
+    border-bottom: 1px solid #21262d;
+  }
+  .hint kbd {
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 3px;
+    padding: 0 4px;
+    font-family: inherit;
+    font-size: 10px;
+  }
+  #recents {
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .section-label {
+    padding: 8px 10px 4px;
+    font-size: 11px;
+    color: #484f58;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .repo-item {
+    padding: 6px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .repo-item:hover, .repo-item.selected { background: #161b22; }
+  .repo-item .name {
+    font-family: "SF Mono", "Fira Code", monospace;
+    color: #58a6ff;
+    flex: 1;
+  }
+  .repo-item .meta {
+    font-size: 11px;
+    color: #484f58;
+  }
+  .repo-item .remove {
+    opacity: 0;
+    color: #484f58;
+    cursor: pointer;
+    padding: 0 2px;
+  }
+  .repo-item:hover .remove { opacity: 1; }
+  .repo-item .remove:hover { color: #f85149; }
+  #empty {
+    padding: 16px 10px;
+    text-align: center;
+    color: #484f58;
+  }
+  .wt-badge {
+    background: #1f6feb33;
+    color: #58a6ff;
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 8px;
+  }
+</style>
+</head>
+<body>
+  <div id="input-wrap">
+    <input id="q" type="text" value="github/data-dbt&amp;newtree" spellcheck="false" />
+  </div>
+  <div class="hint">
+    <kbd>enter</kbd> open &nbsp;
+    <kbd>&amp;newtree</kbd> worktree &nbsp;
+    <kbd>&amp;newtree=name</kbd> named
+  </div>
+  <div id="recents"></div>
+  <div id="empty" style="display:none">No recent repos</div>
+  <script src="popup.js"></script>
+</body>
+</html>
