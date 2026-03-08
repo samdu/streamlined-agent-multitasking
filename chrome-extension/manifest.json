@@ -1,10 +1,17 @@
 {
   "manifest_version": 3,
   "name": "Code Server Spawn",
-  "version": "3.0",
+  "version": "3.1",
   "description": "Launch code-server instances, auto-group tabs by repo, reconnect dead sessions",
-  "permissions": ["tabs", "tabGroups", "storage", "alarms"],
-  "host_permissions": ["http://127.0.0.1:*/"],
+  "permissions": [
+    "tabs",
+    "tabGroups",
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:*/"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Open code-server (Cmd+Shift+.)"
