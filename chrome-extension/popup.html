@@ -68,6 +68,15 @@
     font-size: 11px;
     color: #484f58;
   }
+  .repo-item .pin {
+    opacity: 0;
+    color: #484f58;
+    cursor: pointer;
+    padding: 0 2px;
+    font-size: 11px;
+  }
+  .repo-item:hover .pin { opacity: 0.6; }
+  .repo-item .pin:hover { opacity: 1; color: #3fb950; }
   .repo-item .remove {
     opacity: 0;
     color: #484f58;
@@ -92,12 +101,12 @@
 </head>
 <body>
   <div id="input-wrap">
-    <input id="q" type="text" value="github/data-dbt&amp;newtree" spellcheck="false" />
+    <input id="q" type="text" placeholder="repo/path" value="" spellcheck="false" />
   </div>
   <div class="hint">
     <kbd>enter</kbd> open &nbsp;
-    <kbd>&amp;newtree</kbd> worktree &nbsp;
-    <kbd>&amp;newtree=name</kbd> named
+    <kbd>⇧ enter</kbd> set default &nbsp;
+    <kbd>&amp;newtree</kbd> worktree
   </div>
   <div id="recents"></div>
   <div id="empty" style="display:none">No recent repos</div>

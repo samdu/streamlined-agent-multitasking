@@ -4,11 +4,14 @@ const emptyEl = document.getElementById("empty");
 let recents = [];
 let selectedIdx = -1;
 q.focus();
-q.select();
 
-// Load recents
-chrome.storage.local.get("recents", (data) => {
+// Load recents + default repo
+chrome.storage.local.get(["recents", "defaultRepo"], (data) => {
   recents = data.recents || [];
+  if (data.defaultRepo) {
+    q.value = data.defaultRepo;
+  }
+  q.select();
   renderRecents();
 });
 
@@ -31,6 +34,7 @@ function renderRecents(filter = "") {
       <span class="name">${esc(r.repo)}</span>
       ${wt}
       <span class="meta">${timeAgo(r.ts)}</span>
+      <span class="pin" data-repo="${esc(r.repo)}" title="Set as default">&#x25C9;</span>
       <span class="remove" data-repo="${esc(r.repo)}">&times;</span>
     </div>`;
   });
@@ -40,6 +44,10 @@ function renderRecents(filter = "") {
     el.addEventListener("click", (e) => {
       if (e.target.classList.contains("remove")) {
         removeRecent(e.target.dataset.repo);
+        return;
+      }
+      if (e.target.classList.contains("pin")) {
+        setDefault(e.target.dataset.repo);
         return;
       }
       const r = filtered[el.dataset.idx];
@@ -63,6 +71,11 @@ q.addEventListener("keydown", (e) => {
     e.preventDefault();
     selectedIdx = Math.max(selectedIdx - 1, -1);
     renderRecents(q.value.split("&")[0]);
+  } else if (e.key === "Enter" && e.shiftKey) {
+    e.preventDefault();
+    if (q.value.trim()) {
+      setDefault(q.value.split("&")[0].trim());
+    }
   } else if (e.key === "Enter") {
     e.preventDefault();
     if (selectedIdx >= 0 && items[selectedIdx]) {
@@ -116,6 +129,15 @@ function addRecent(repo, newtree) {
   recents.unshift({ repo, newtree, ts: Date.now() });
   recents = recents.slice(0, 20);
   chrome.storage.local.set({ recents });
+}
+
+function setDefault(repo) {
+  chrome.storage.local.set({ defaultRepo: repo });
+  q.value = repo;
+  q.select();
+  // Brief visual confirmation
+  q.style.borderColor = "#3fb950";
+  setTimeout(() => { q.style.borderColor = ""; }, 600);
 }
 
 function removeRecent(repo) {
