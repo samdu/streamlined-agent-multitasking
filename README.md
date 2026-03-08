@@ -113,10 +113,22 @@ Chrome popup / bookmark (codeserver://open?repo=...)
           → Chrome extension creates named tab group
 ```
 
+## Per-machine config
+
+`~/.cs-spawn/config` is sourced on every invocation if present. Use it to set machine-specific defaults:
+
+```bash
+# ~/.cs-spawn/config
+DEFAULT_REPO="github/homelab"
+```
+
+When `DEFAULT_REPO` is set, running `cs-spawn` with no arguments opens that repo directly instead of showing the folder picker.
+
 ## Files
 
 ```
 ~/.cs-spawn/                  # PID files, port files, logs, session metadata
+~/.cs-spawn/config            # per-machine config (DEFAULT_REPO, etc.)
 ~/.cs-spawn/data/<hash>/      # per-repo VS Code state (editors, settings, etc.)
 ~/.cs-spawn/<hash>.session    # session metadata (survives process death)
 ~/.local/bin/cs-spawn         # main spawn script
