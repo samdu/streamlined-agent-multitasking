@@ -61,9 +61,17 @@ if [ -n "$RESURRECT" ]; then
   exit 0
 fi
 
+# --- Load per-machine config ---
+CS_SPAWN_CONFIG="${HOME}/.cs-spawn/config"
+[ -f "$CS_SPAWN_CONFIG" ] && source "$CS_SPAWN_CONFIG"
+
 if [ -z "$REPO_PATH" ]; then
-  REPO_PATH=$(osascript -e 'POSIX path of (choose folder with prompt "Select a repo to open in code-server")')
-  [ -z "$REPO_PATH" ] && exit 0
+  if [ -n "${DEFAULT_REPO:-}" ]; then
+    REPO_PATH="$DEFAULT_REPO"
+  else
+    REPO_PATH=$(osascript -e 'POSIX path of (choose folder with prompt "Select a repo to open in code-server")')
+    [ -z "$REPO_PATH" ] && exit 0
+  fi
 fi
 
 # --- Resolve path (relative to $HOME if not absolute) ---
