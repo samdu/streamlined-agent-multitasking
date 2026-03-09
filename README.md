@@ -25,6 +25,7 @@ This installs `cs-spawn`, `cs-stop`, and `cs-spawn-from-url` to `~/.local/bin/`,
 
 The extension provides:
 - **Cmd+Shift+.** opens a launcher popup
+- **Cmd+Shift+,** opens the session dashboard
 - Auto-groups code-server tabs by repo name with consistent colors
 - Recent repo history with arrow-key navigation
 
@@ -74,6 +75,18 @@ cs-spawn github/data-dbt --newtree
 cs-spawn github/data-dbt --newtree=sam/my-feature
 cs-spawn   # opens a folder picker
 ```
+
+### Session dashboard
+
+**Cmd+Shift+,** opens a dashboard page showing all code-server sessions. Each session shows whether it has an open Chrome tab or is orphaned (running but no tab). From here you can:
+
+- **Focus** a tab for a running session
+- **Open** an orphaned session in a new tab
+- **Stop** a running session
+- **Resurrect** a stopped session
+- **Purge** a stopped session (deletes all state)
+
+The dashboard is also accessible via the "Sessions" link in the launcher popup.
 
 ### Managing instances
 
@@ -131,8 +144,11 @@ When `DEFAULT_REPO` is set, running `cs-spawn` with no arguments opens that repo
 ~/.cs-spawn/config            # per-machine config (DEFAULT_REPO, etc.)
 ~/.cs-spawn/data/<hash>/      # per-repo VS Code state (editors, settings, etc.)
 ~/.cs-spawn/<hash>.session    # session metadata (survives process death)
+~/.cs-spawn/api.log           # session API daemon log
 ~/.local/bin/cs-spawn         # main spawn script
 ~/.local/bin/cs-stop          # instance manager
 ~/.local/bin/cs-spawn-from-url  # URL parser for scheme handler
+~/.local/bin/cs-api           # session API daemon (port 19377)
 ~/Applications/CodeServerSpawn.app  # AppleScript URL scheme handler
+~/Library/LaunchAgents/com.cs-spawn.api.plist  # keeps cs-api running
 ```

@@ -144,3 +144,24 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     checkHealth();
   }
 });
+
+// --- Session dashboard shortcut (Cmd+Shift+,) ---
+
+const SESSIONS_PATH = "sessions.html";
+
+chrome.commands.onCommand.addListener((command) => {
+  if (command === "open-sessions") {
+    openSessionsDashboard();
+  }
+});
+
+async function openSessionsDashboard() {
+  const sessionsUrl = chrome.runtime.getURL(SESSIONS_PATH);
+  const tabs = await chrome.tabs.query({ url: sessionsUrl });
+  if (tabs.length > 0) {
+    await chrome.tabs.update(tabs[0].id, { active: true });
+    await chrome.windows.update(tabs[0].windowId, { focused: true });
+  } else {
+    await chrome.tabs.create({ url: sessionsUrl });
+  }
+}

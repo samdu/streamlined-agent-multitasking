@@ -40,6 +40,28 @@
     font-family: inherit;
     font-size: 10px;
   }
+  .footer {
+    padding: 6px 10px;
+    border-top: 1px solid #21262d;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .footer a {
+    font-size: 11px;
+    color: #484f58;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .footer a:hover { color: #58a6ff; }
+  .footer kbd {
+    background: #21262d;
+    border: 1px solid #30363d;
+    border-radius: 3px;
+    padding: 0 4px;
+    font-family: inherit;
+    font-size: 10px;
+    margin-left: 4px;
+  }
   #recents {
     max-height: 240px;
     overflow-y: auto;
@@ -110,6 +132,9 @@
   </div>
   <div id="recents"></div>
   <div id="empty" style="display:none">No recent repos</div>
+  <div class="footer">
+    <a id="sessions-link">Sessions <kbd>&#8984;&#8679;,</kbd></a>
+  </div>
   <script src="popup.js"></script>
 </body>
 </html>

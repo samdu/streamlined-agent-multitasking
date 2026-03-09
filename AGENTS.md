@@ -42,6 +42,20 @@ The app is a **compiled AppleScript applet** (built with `osacompile`), not a sh
 
 The Info.plist URL scheme registration is injected via `defaults write` after `osacompile`, then re-registered with `lsregister -f`.
 
+**Do not replace `osacompile` with a manual `.app` bundle.** Setting `CFBundleExecutable` to a bash script produces a structurally valid but functionally dead app bundle — macOS launches the script, sends the URL via Apple Event, and the script never receives it. This failure is completely silent: no error, no alert, no log. The process starts and exits immediately. If URL scheme launches stop working, check `CFBundleExecutable` in the installed Info.plist (`defaults read ~/Applications/CodeServerSpawn.app/Contents/Info CFBundleExecutable`) — it must be `applet`, not a shell script name.
+
+**Do not duplicate URL parsing in the handler.** The AppleScript should delegate to `cs-spawn-from-url`, which handles URL-encoded params, relative paths (`github/foo` → `$HOME/github/foo`), and `--newtree` flags. Inline URL parsing with `sed` in a handler script will miss edge cases (especially the relative path resolution, which happens inside `cs-spawn`).
+
+`setup.sh` does `rm -rf` on the app bundle before rebuilding. This is intentional — stale files from previous builds (e.g., a leftover `handler` script alongside `applet`) create confusing states. The AppleScript handler logs to `~/.cs-spawn/url-handler.log` for diagnostics.
+
+## Session API daemon (`cs-api`)
+
+The Chrome extension can't read `~/.cs-spawn/*.session` files directly (no filesystem access), so a tiny Python HTTP server bridges the gap. It runs on `127.0.0.1:19377`, reads session files, checks PIDs, and exposes `GET /sessions` (JSON array) plus `POST /stop/{hash}` and `POST /purge/{hash}`. CORS is wide open (`*`) because the requesting origin is `chrome-extension://` which varies per install.
+
+The daemon is managed by launchd (`com.cs-spawn.api` LaunchAgent) with `KeepAlive: true`. If it dies, launchd restarts it. Logs go to `~/.cs-spawn/api.log`.
+
+The session dashboard page (`sessions.html`) fetches from this API and cross-references with `chrome.tabs.query()` to determine which running sessions have open browser tabs vs. which are orphaned.
+
 ## Chrome extension: MV3 gotchas
 
 - **No inline scripts**: `<script>` blocks in extension HTML are silently blocked by CSP. All JS must be in separate `.js` files loaded via `<script src="...">`.
@@ -74,4 +88,6 @@ There's no test suite. To manually verify changes:
 4. Kill the code-server process (`cs-stop <n>`) and watch the Chrome tab redirect to the reconnect page
 5. Click "Restart server" and verify it comes back with previous editor state
 6. `cs-spawn --resurrect` to verify batch resurrection works
-7. Always test the full URL scheme flow (`open 'codeserver://open?repo=...'`), not just direct script invocation — the two paths have different environments (shell profile vs AppleScript) and different failure modes.
+7. **Always test the full URL scheme flow** (`open 'codeserver://open?repo=...'`), not just direct script invocation — the two paths have completely different environments (shell profile vs AppleScript `do shell script`) and different failure modes. `cs-spawn github/foo` working in your terminal proves nothing about whether the URL scheme works. The URL scheme path is: Chrome iframe → macOS Apple Event → AppleScript → `cs-spawn-from-url` → `cs-spawn`. If any link is broken, the failure is silent.
+8. After running `setup.sh`, verify the app bundle: `defaults read ~/Applications/CodeServerSpawn.app/Contents/Info CFBundleExecutable` should print `applet`. If it prints anything else, the URL scheme handler is broken.
+9. Check `~/.cs-spawn/url-handler.log` for output from URL scheme invocations. No output after triggering a URL means the AppleScript handler didn't fire.

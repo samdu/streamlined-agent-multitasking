@@ -159,3 +159,8 @@ function esc(s) {
   d.textContent = s;
   return d.innerHTML;
 }
+
+document.getElementById("sessions-link").addEventListener("click", () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL("sessions.html") });
+  window.close();
+});

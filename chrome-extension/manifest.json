@@ -23,9 +23,23 @@
         "mac": "Command+Shift+Period"
       },
       "description": "Open code-server launcher"
+    },
+    "open-sessions": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Comma",
+        "mac": "Command+Shift+Comma"
+      },
+      "description": "Open session dashboard"
     }
   },
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://127.0.0.1:*/*", "http://localhost:*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }
