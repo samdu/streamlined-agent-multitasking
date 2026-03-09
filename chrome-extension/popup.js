@@ -114,12 +114,8 @@ function launch(repo, newtree) {
   // Save to recents
   addRecent(repo, newtree);
 
-  // Navigate (triggers URL scheme)
-  // Trigger URL scheme without navigating any tab
-  const iframe = document.createElement("iframe");
-  iframe.style.display = "none";
-  iframe.src = url;
-  document.body.appendChild(iframe);
+  // Trigger URL scheme via background service worker (outlives the popup)
+  chrome.runtime.sendMessage({ action: "launch", url });
   window.close();
 }
 

@@ -145,6 +145,22 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
+// --- Launch handler (receives from popup) ---
+// The popup sends { action: "launch", url } so the background worker can
+// trigger the codeserver:// URL scheme. Popups die too quickly for iframes
+// to reliably navigate to custom protocol URLs in recent Chrome builds.
+
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.action === "launch" && msg.url) {
+    chrome.tabs.create({ url: msg.url, active: false }, (tab) => {
+      // The protocol handler tab opens blank — close it after a beat
+      setTimeout(() => {
+        try { chrome.tabs.remove(tab.id); } catch {}
+      }, 1000);
+    });
+  }
+});
+
 // --- Session dashboard shortcut (Cmd+Shift+,) ---
 
 const SESSIONS_PATH = "sessions.html";
