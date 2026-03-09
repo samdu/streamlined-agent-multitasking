@@ -145,6 +145,19 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
+// --- Spawn handler (receives from popup) ---
+// Popup dies before fetch() can complete, so it delegates here.
+
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.action === "spawn") {
+    fetch("http://127.0.0.1:19377/spawn", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repo: msg.repo, newtree: msg.newtree || "" }),
+    }).catch((err) => console.error("cs-spawn:", err));
+  }
+});
+
 // --- Session dashboard shortcut (Cmd+Shift+,) ---
 
 const SESSIONS_PATH = "sessions.html";

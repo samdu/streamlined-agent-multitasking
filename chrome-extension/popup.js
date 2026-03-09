@@ -106,13 +106,8 @@ function launch(repo, newtree) {
   // Save to recents
   addRecent(repo, newtree);
 
-  // Spawn via cs-api HTTP endpoint (reliable, no protocol handler needed)
-  fetch("http://127.0.0.1:19377/spawn", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ repo, newtree }),
-  }).catch(() => {});
-
+  // Delegate to background worker (popup dies before fetch completes)
+  chrome.runtime.sendMessage({ action: "spawn", repo, newtree });
   window.close();
 }
 
