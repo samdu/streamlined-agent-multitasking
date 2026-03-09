@@ -103,19 +103,16 @@ function parseAndLaunch(input) {
 }
 
 function launch(repo, newtree) {
-  // Build URL
-  let url = `codeserver://open?repo=${encodeURIComponent(repo)}`;
-  if (newtree === "__auto__") {
-    url += "&newtree";
-  } else if (newtree) {
-    url += `&newtree=${encodeURIComponent(newtree)}`;
-  }
-
   // Save to recents
   addRecent(repo, newtree);
 
-  // Trigger URL scheme via background service worker (outlives the popup)
-  chrome.runtime.sendMessage({ action: "launch", url });
+  // Spawn via cs-api HTTP endpoint (reliable, no protocol handler needed)
+  fetch("http://127.0.0.1:19377/spawn", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ repo, newtree }),
+  }).catch(() => {});
+
   window.close();
 }
 

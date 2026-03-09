@@ -8,6 +8,7 @@ seen tabs for.
 Endpoints:
   GET  /sessions       — JSON array of all sessions with alive/dead status
   GET  /agents         — per-port agent state (branch, agent running/idle/working)
+  POST /spawn          — start a code-server session (JSON body: {repo, newtree?})
   POST /stop/{hash}    — SIGTERM a running session
   POST /purge/{hash}   — stop + delete all state for a session
 """
@@ -204,7 +205,30 @@ class Handler(BaseHTTPRequestHandler):
             self._json(404, {"error": "not found"})
 
     def do_POST(self):
-        if self.path.startswith("/stop/"):
+        if self.path == "/spawn":
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length)) if length else {}
+            repo = body.get("repo", "")
+            newtree = body.get("newtree", "")
+            if not repo:
+                self._json(400, {"error": "repo is required"})
+                return
+            cmd = [os.path.expanduser("~/.local/bin/cs-spawn"), repo]
+            if newtree == "__auto__":
+                cmd.append("--newtree")
+            elif newtree:
+                cmd.append(f"--newtree={newtree}")
+            try:
+                subprocess.Popen(
+                    cmd,
+                    stdout=open(os.path.join(PIDDIR, "spawn.log"), "a"),
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
+                self._json(200, {"spawned": repo})
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+        elif self.path.startswith("/stop/"):
             h = self.path[6:]
             ok = stop_session(h)
             self._json(200 if ok else 404, {"stopped": ok})
