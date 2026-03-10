@@ -142,6 +142,12 @@ LOGFILE="$PIDDIR/$HASH.log"
 
 mkdir -p "$DATADIR"
 
+# --- Seed default settings for new instances ---
+DEFAULTS_DIR="$PIDDIR/defaults"
+if [ -d "$DEFAULTS_DIR" ] && [ ! -f "$DATADIR/User/settings.json" ]; then
+  cp -Rn "$DEFAULTS_DIR/" "$DATADIR/"
+fi
+
 # --- Check if already running for this path ---
 if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
   PORT=$(cat "$PORTFILE")
