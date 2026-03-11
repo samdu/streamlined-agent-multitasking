@@ -5,14 +5,22 @@ let recents = [];
 let selectedIdx = -1;
 q.focus();
 
-// Load recents + default repo
+// Load recents + resolve default repo (API config → chrome storage fallback)
 chrome.storage.local.get(["recents", "defaultRepo"], (data) => {
   recents = data.recents || [];
-  if (data.defaultRepo) {
-    q.value = data.defaultRepo;
-  }
-  q.select();
-  renderRecents();
+  fetch("http://127.0.0.1:19377/config")
+    .then(r => r.json())
+    .then(config => {
+      const repo = config.DEFAULT_REPO || data.defaultRepo || "";
+      q.value = repo ? repo + "&newtree" : "";
+      q.select();
+      renderRecents();
+    })
+    .catch(() => {
+      if (data.defaultRepo) q.value = data.defaultRepo + "&newtree";
+      q.select();
+      renderRecents();
+    });
 });
 
 function renderRecents(filter = "") {
@@ -121,9 +129,8 @@ function addRecent(repo, newtree) {
 
 function setDefault(repo) {
   chrome.storage.local.set({ defaultRepo: repo });
-  q.value = repo;
+  q.value = repo + "&newtree";
   q.select();
-  // Brief visual confirmation
   q.style.borderColor = "#3fb950";
   setTimeout(() => { q.style.borderColor = ""; }, 600);
 }

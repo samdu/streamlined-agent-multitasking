@@ -193,12 +193,36 @@ def get_agent_states():
     return result
 
 
+def load_config():
+    """Parse ~/.cs-spawn/config (shell key=value) into a dict."""
+    config_path = os.path.join(PIDDIR, "config")
+    result = {}
+    if not os.path.exists(config_path):
+        return result
+    try:
+        with open(config_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, _, val = line.partition("=")
+                    key = key.strip()
+                    val = val.strip().strip('"').strip("'")
+                    result[key] = val
+    except IOError:
+        pass
+    return result
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/sessions":
             self._json(200, load_sessions())
         elif self.path == "/agents":
             self._json(200, get_agent_states())
+        elif self.path == "/config":
+            self._json(200, load_config())
         elif self.path == "/health":
             self._json(200, {"ok": True})
         else:
