@@ -109,14 +109,28 @@ def get_process_tree():
     return procs, children
 
 
+def identify_agent(args):
+    """Return agent type if this process is a known AI coding agent, else None."""
+    if "cursor-agent" in args:
+        return "cursor"
+    if "claude-code" in args:
+        return "claude"
+    binary = args.split()[0] if args else ""
+    if os.path.basename(binary) == "claude":
+        return "claude"
+    return None
+
+
 def find_agent_descendant(pid, procs, children, depth=0):
-    """Walk descendants of pid looking for a cursor-agent process."""
+    """Walk descendants of pid looking for an AI agent process."""
     if depth > 10:
         return None
     for child in children.get(pid, []):
         proc = procs.get(child)
-        if proc and "cursor-agent" in proc["args"]:
-            return proc
+        if proc:
+            agent_type = identify_agent(proc["args"])
+            if agent_type:
+                return {**proc, "agent_type": agent_type}
         found = find_agent_descendant(child, procs, children, depth + 1)
         if found:
             return found
@@ -181,6 +195,7 @@ def get_agent_states():
                 state = "working" if agent_proc["pcpu"] > CPU_THRESHOLD else "idle"
                 agent_state = {
                     "state": state,
+                    "type": agent_proc.get("agent_type", "unknown"),
                     "pid": agent_proc["pid"],
                     "cpu": agent_proc["pcpu"],
                 }

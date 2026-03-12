@@ -1,29 +1,64 @@
 // Injected into code-server pages. Polls cs-api for agent state and
 // overrides document.title + favicon to reflect repo/branch and agent status.
+// Also prevents Chrome from throttling background tabs (which kills the
+// WebSocket connection between the code-server UI and server process).
 
 const CS_API = "http://127.0.0.1:19377";
+
+// --- Anti-throttle (silent audio) ---
+// Chrome throttles JS timers in background tabs to ~1/min, which starves the
+// code-server WebSocket heartbeat and causes repeated "Connection lost" cycles.
+// An active AudioContext with connected nodes exempts the tab from throttling.
+
+(function initAntiThrottle() {
+  let ctx;
+  try {
+    ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = 1;
+    gain.gain.value = 0.001;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+  } catch {
+    return;
+  }
+  if (ctx.state === "suspended") {
+    const resume = () => ctx.resume();
+    document.addEventListener("click", resume, { once: true });
+    document.addEventListener("keydown", resume, { once: true });
+  }
+})();
 const POLL_MS = 5000;
 const PORT = location.port;
 
-// --- Cursor-style favicon SVGs (colored rounded square with caret) ---
+// --- Favicon SVGs (colored rounded square with agent-specific symbol) ---
 
-function cursorIcon(fill) {
+function svgIcon(fill, innerSvg) {
   return (
     `data:image/svg+xml,` +
     encodeURIComponent(
       `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">` +
         `<rect width="32" height="32" rx="8" fill="${fill}"/>` +
-        `<path d="M12 9L21 16L12 23" stroke="rgba(255,255,255,0.9)" stroke-width="3" ` +
-        `stroke-linecap="round" stroke-linejoin="round" fill="none"/>` +
+        innerSvg +
         `</svg>`
     )
   );
 }
 
+const CARET = `<path d="M12 9L21 16L12 23" stroke="rgba(255,255,255,0.9)" stroke-width="3" ` +
+  `stroke-linecap="round" stroke-linejoin="round" fill="none"/>`;
+
+const SPARKLE = `<path d="M16 7L18 13L24 16L18 19L16 25L14 19L8 16L14 13Z" ` +
+  `fill="rgba(255,255,255,0.9)"/>`;
+
 const FAVICON = {
-  none: cursorIcon("#6B7280"),
-  idle: cursorIcon("#22C55E"),
-  working: cursorIcon("#3B82F6"),
+  none: svgIcon("#6B7280", ""),
+  cursor_idle: svgIcon("#22C55E", CARET),
+  cursor_working: svgIcon("#3B82F6", CARET),
+  claude_idle: svgIcon("#22C55E", SPARKLE),
+  claude_working: svgIcon("#3B82F6", SPARKLE),
 };
 
 // --- Title management ---
@@ -118,10 +153,10 @@ async function poll() {
 
     if (!state.agent) {
       setFavicon(FAVICON.none);
-    } else if (state.agent.state === "working") {
-      setFavicon(FAVICON.working);
     } else {
-      setFavicon(FAVICON.idle);
+      const type = state.agent.type || "cursor";
+      const key = `${type}_${state.agent.state}`;
+      setFavicon(FAVICON[key] || FAVICON.none);
     }
   } catch {
     // cs-api not reachable — leave current state as-is
