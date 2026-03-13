@@ -5,22 +5,23 @@ let recents = [];
 let selectedIdx = -1;
 q.focus();
 
-// Load recents + resolve default repo (API config → chrome storage fallback)
 chrome.storage.local.get(["recents", "defaultRepo"], (data) => {
   recents = data.recents || [];
-  fetch("http://127.0.0.1:19377/config")
+  if (data.defaultRepo) q.value = data.defaultRepo + "&newtree";
+  q.select();
+  renderRecents();
+
+  const ctrl = new AbortController();
+  setTimeout(() => ctrl.abort(), 500);
+  fetch("http://127.0.0.1:19377/config", { signal: ctrl.signal })
     .then(r => r.json())
     .then(config => {
-      const repo = config.DEFAULT_REPO || data.defaultRepo || "";
-      q.value = repo ? repo + "&newtree" : "";
-      q.select();
-      renderRecents();
+      if (config.DEFAULT_REPO && config.DEFAULT_REPO !== data.defaultRepo) {
+        q.value = config.DEFAULT_REPO + "&newtree";
+        q.select();
+      }
     })
-    .catch(() => {
-      if (data.defaultRepo) q.value = data.defaultRepo + "&newtree";
-      q.select();
-      renderRecents();
-    });
+    .catch(() => {});
 });
 
 function renderRecents(filter = "") {
