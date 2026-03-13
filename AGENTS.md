@@ -54,6 +54,12 @@ The Chrome extension can't read `~/.cs-spawn/*.session` files directly (no files
 
 The daemon is managed by launchd (`com.cs-spawn.api` LaunchAgent) with `KeepAlive: true`. If it dies, launchd restarts it. Logs go to `~/.cs-spawn/api.log`.
 
+**After modifying `cs-api.py`, you must reinstall and restart the daemon.** The running process loads from `~/.local/bin/cs-api`, not from the repo checkout. Either run `./setup.sh` (reinstalls everything) or do it manually:
+```bash
+cp cs-api.py ~/.local/bin/cs-api && launchctl kickstart -k gui/$(id -u)/com.cs-spawn.api
+```
+The Chrome extension talks to the daemon, so changes to `cs-api.py` without a restart will silently serve stale code — new endpoints return 404, changed behavior doesn't take effect. Same applies to `cs-spawn.sh` and `cs-spawn-from-url` (though those aren't long-running, so the next invocation picks up changes after `cp`).
+
 The session dashboard page (`sessions.html`) fetches from this API and cross-references with `chrome.tabs.query()` to determine which running sessions have open browser tabs vs. which are orphaned.
 
 ## Chrome extension: MV3 gotchas
