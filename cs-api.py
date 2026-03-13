@@ -7,19 +7,23 @@ seen tabs for.
 
 Endpoints:
   GET  /sessions       — JSON array of all sessions with alive/dead status
+  GET  /repos          — repo tree with worktrees and session cross-references
   GET  /agents         — per-port agent state (branch, agent running/idle/working)
   POST /spawn          — start a code-server session (JSON body: {repo, newtree?})
   POST /stop/{hash}    — SIGTERM a running session
   POST /purge/{hash}   — stop + delete all state for a session
+  POST /worktree/remove — git worktree remove + session purge
 """
 
 import glob
+import hashlib
 import json
 import os
 import shutil
 import signal
 import subprocess
 import sys
+import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 PORT = 19377
@@ -230,10 +234,215 @@ def load_config():
     return result
 
 
+SKIP_DIRS = {
+    ".git", "node_modules", "__pycache__", ".next", "target",
+    "venv", ".venv", "dist", "build", ".mypy_cache", ".pytest_cache",
+    ".tox", ".eggs", ".bundle",
+}
+INACTIVE_DAYS = 14
+MTIME_CACHE_TTL = 60  # seconds
+
+_repo_mtime_cache = {}  # path -> (timestamp, mtime_result)
+
+
+def compute_path_hash(path):
+    """Reproduce the session hash: first 8 chars of md5(absolute_path)."""
+    return hashlib.md5(path.encode()).hexdigest()[:8]
+
+
+def get_repo_mtime(repo_path):
+    """Return the mtime of the most recently modified file in repo_path.
+
+    Uses os.walk with directory exclusions and early termination once a
+    file newer than the 14-day cutoff is found. Results are cached for
+    MTIME_CACHE_TTL seconds.
+    """
+    now = time.time()
+    cached = _repo_mtime_cache.get(repo_path)
+    if cached and (now - cached[0]) < MTIME_CACHE_TTL:
+        return cached[1]
+
+    cutoff = now - INACTIVE_DAYS * 86400
+    max_mtime = 0.0
+    found_recent = False
+
+    try:
+        for root, dirs, files in os.walk(repo_path):
+            dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+            for f in files:
+                try:
+                    mt = os.path.getmtime(os.path.join(root, f))
+                except OSError:
+                    continue
+                if mt > max_mtime:
+                    max_mtime = mt
+                if mt > cutoff:
+                    found_recent = True
+                    break
+            if found_recent:
+                break
+    except OSError:
+        pass
+
+    result = max_mtime if max_mtime > 0 else None
+    _repo_mtime_cache[repo_path] = (now, result)
+    return result
+
+
+def load_repos():
+    """Scan configured REPO_DIRS, discover repos/worktrees, cross-reference sessions."""
+    config = load_config()
+    raw_dirs = config.get("REPO_DIRS", "~/github")
+    repo_dirs = [os.path.expanduser(d.strip()) for d in raw_dirs.split(",") if d.strip()]
+
+    sessions = load_sessions()
+    session_by_hash = {s["hash"]: s for s in sessions}
+
+    repos = []
+    seen_paths = set()
+
+    for parent_dir in repo_dirs:
+        if not os.path.isdir(parent_dir):
+            continue
+        try:
+            entries = sorted(os.listdir(parent_dir))
+        except OSError:
+            continue
+
+        for name in entries:
+            if name.endswith("-worktrees"):
+                continue
+            repo_path = os.path.join(parent_dir, name)
+            if not os.path.isdir(repo_path):
+                continue
+            git_path = os.path.join(repo_path, ".git")
+            if not os.path.exists(git_path):
+                continue
+            if repo_path in seen_paths:
+                continue
+            seen_paths.add(repo_path)
+
+            repo_hash = compute_path_hash(repo_path)
+            repo_session = session_by_hash.get(repo_hash)
+
+            worktrees = []
+            wt_container = os.path.join(parent_dir, f"{name}-worktrees")
+            if os.path.isdir(wt_container):
+                try:
+                    wt_entries = sorted(os.listdir(wt_container))
+                except OSError:
+                    wt_entries = []
+                for wt_name in wt_entries:
+                    wt_path = os.path.join(wt_container, wt_name)
+                    if not os.path.isdir(wt_path):
+                        continue
+                    wt_hash = compute_path_hash(wt_path)
+                    wt_session = session_by_hash.get(wt_hash)
+                    worktrees.append({
+                        "name": wt_name,
+                        "path": wt_path,
+                        "branch": get_git_branch(wt_path),
+                        "session": wt_session,
+                    })
+
+            # Compute last_activity: best session timestamp, else filesystem mtime
+            timestamps = []
+            if repo_session and repo_session.get("last_spawned"):
+                timestamps.append(repo_session["last_spawned"])
+            for wt in worktrees:
+                if wt["session"] and wt["session"].get("last_spawned"):
+                    timestamps.append(wt["session"]["last_spawned"])
+
+            if timestamps:
+                last_activity = max(timestamps)
+            else:
+                last_activity = get_repo_mtime(repo_path)
+
+            repos.append({
+                "name": name,
+                "path": repo_path,
+                "session": repo_session,
+                "worktrees": worktrees,
+                "last_activity": last_activity,
+            })
+
+    # Also surface sessions whose repo_path doesn't match any discovered repo
+    # (e.g. repos in directories not in REPO_DIRS)
+    discovered_hashes = set()
+    for r in repos:
+        if r["session"]:
+            discovered_hashes.add(r["session"]["hash"])
+        for wt in r["worktrees"]:
+            if wt["session"]:
+                discovered_hashes.add(wt["session"]["hash"])
+
+    for s in sessions:
+        if s["hash"] in discovered_hashes:
+            continue
+        repo_path = s.get("repo_path", "")
+        repos.append({
+            "name": s.get("repo_name", os.path.basename(repo_path)),
+            "path": repo_path,
+            "session": s,
+            "worktrees": [],
+            "last_activity": s.get("last_spawned"),
+        })
+
+    return repos
+
+
+def remove_worktree(wt_path):
+    """Remove a git worktree directory and any associated session.
+
+    Returns (success: bool, error: str|None).
+    """
+    if "-worktrees/" not in wt_path:
+        return False, "path does not look like a worktree"
+
+    # Infer parent repo
+    idx = wt_path.index("-worktrees/")
+    parent_repo = wt_path[:idx]
+    if not os.path.isdir(parent_repo):
+        return False, f"parent repo not found: {parent_repo}"
+
+    # Purge any associated session
+    wt_hash = compute_path_hash(wt_path)
+    sessions = load_sessions()
+    for s in sessions:
+        if s["hash"] == wt_hash:
+            purge_session(wt_hash)
+            break
+
+    # git worktree remove
+    if os.path.isdir(wt_path):
+        try:
+            result = subprocess.run(
+                ["git", "-C", parent_repo, "worktree", "remove", wt_path, "--force"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0 and os.path.isdir(wt_path):
+                shutil.rmtree(wt_path, ignore_errors=True)
+        except Exception:
+            if os.path.isdir(wt_path):
+                shutil.rmtree(wt_path, ignore_errors=True)
+
+    # Clean up empty worktree container
+    wt_container = os.path.dirname(wt_path)
+    try:
+        if os.path.isdir(wt_container) and not os.listdir(wt_container):
+            os.rmdir(wt_container)
+    except OSError:
+        pass
+
+    return True, None
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/sessions":
             self._json(200, load_sessions())
+        elif self.path == "/repos":
+            self._json(200, load_repos())
         elif self.path == "/agents":
             self._json(200, get_agent_states())
         elif self.path == "/config":
@@ -267,6 +476,18 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {"spawned": repo})
             except Exception as e:
                 self._json(500, {"error": str(e)})
+        elif self.path == "/worktree/remove":
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length)) if length else {}
+            wt_path = body.get("path", "")
+            if not wt_path:
+                self._json(400, {"error": "path is required"})
+                return
+            ok, err = remove_worktree(wt_path)
+            if ok:
+                self._json(200, {"removed": True})
+            else:
+                self._json(400, {"error": err})
         elif self.path.startswith("/stop/"):
             h = self.path[6:]
             ok = stop_session(h)
