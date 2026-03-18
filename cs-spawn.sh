@@ -12,6 +12,23 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 PIDDIR="${HOME}/.cs-spawn"
 mkdir -p "$PIDDIR"
 
+# --- Declared extensions (installed once, shared across all sessions) ---
+CS_EXTENSIONS=(
+  "niclas-otalora.git-tree-compare"
+)
+EXTENSIONS_STAMP="$PIDDIR/.extensions-installed"
+_ensure_extensions() {
+  local current_hash
+  current_hash=$(printf '%s\n' "${CS_EXTENSIONS[@]}" | sort | md5)
+  if [ -f "$EXTENSIONS_STAMP" ] && [ "$(cat "$EXTENSIONS_STAMP")" = "$current_hash" ]; then
+    return
+  fi
+  for ext in "${CS_EXTENSIONS[@]}"; do
+    code-server --install-extension "$ext" >/dev/null 2>&1 || true
+  done
+  echo "$current_hash" > "$EXTENSIONS_STAMP"
+}
+
 # --- Parse args ---
 REPO_PATH=""
 NEWTREE=""
@@ -169,6 +186,10 @@ if [ -z "$PORT" ]; then
 fi
 
 # --- Start code-server with persistent user-data-dir ---
+
+# --- Ensure declared extensions are installed ---
+_ensure_extensions
+
 code-server \
   --bind-addr "127.0.0.1:${PORT}" \
   --auth none \
