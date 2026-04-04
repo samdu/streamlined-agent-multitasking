@@ -21,6 +21,10 @@ chrome.storage.local.get(["repoCollapseState"], (data) => {
 
 // --- Main refresh ---
 
+function hasActiveInput() {
+  return !!document.querySelector(".wt-create-row");
+}
+
 async function refresh() {
   refreshIndicator.classList.add("active");
   try {
@@ -29,6 +33,8 @@ async function refresh() {
       queryCodeServerTabs(),
     ]);
     errorBanner.style.display = "none";
+
+    if (hasActiveInput()) return;
 
     const tabsByPort = new Map();
     for (const tab of tabs) {

@@ -23,11 +23,18 @@ import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
+import uuid
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 PORT = 19377
 PIDDIR = os.path.expanduser("~/.cs-spawn")
+
+# Command queue for Chrome extension
+_command_lock = threading.Lock()
+_command_queue = []
+
 
 
 def is_alive(pidfile):
@@ -449,6 +456,11 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, load_config())
         elif self.path == "/health":
             self._json(200, {"ok": True})
+        elif self.path == "/commands/pending":
+            with _command_lock:
+                cmds = list(_command_queue)
+                _command_queue.clear()
+            self._json(200, cmds)
         else:
             self._json(404, {"error": "not found"})
 
@@ -496,6 +508,18 @@ class Handler(BaseHTTPRequestHandler):
             h = self.path[7:]
             ok = purge_session(h)
             self._json(200 if ok else 404, {"purged": ok})
+        elif self.path == "/commands":
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length)) if length else {}
+            cmd_type = body.get("type", "")
+            if not cmd_type:
+                self._json(400, {"error": "type is required"})
+                return
+            cmd_id = str(uuid.uuid4())[:8]
+            cmd = {"id": cmd_id, "type": cmd_type, "payload": body.get("payload", {}), "ts": time.time()}
+            with _command_lock:
+                _command_queue.append(cmd)
+            self._json(200, {"queued": cmd_id})
         else:
             self._json(404, {"error": "not found"})
 

@@ -137,11 +137,95 @@ async function checkHealth() {
   }
 }
 
+// --- Command queue polling ---
+
+async function pollCommands() {
+  try {
+    const resp = await fetch("http://127.0.0.1:19377/commands/pending", {
+      signal: AbortSignal.timeout(3000),
+    });
+    const cmds = await resp.json();
+    for (const cmd of cmds) {
+      try {
+        if (cmd.type === "create-tab-group") {
+          await handleCreateTabGroup(cmd.payload);
+        } else if (cmd.type === "add-to-tab-group") {
+          await handleAddToTabGroup(cmd.payload);
+        }
+      } catch (err) {
+        console.error("cs-command:", cmd.type, err);
+      }
+    }
+  } catch {
+    // cs-api unreachable, skip
+  }
+}
+
+const GROUP_COLORS = [
+  "blue", "red", "yellow", "green",
+  "pink", "purple", "cyan", "orange",
+];
+
+function pickColor(name) {
+  const hash = [...(name || "")].reduce((a, c) => a + c.charCodeAt(0), 0);
+  return GROUP_COLORS[hash % GROUP_COLORS.length];
+}
+
+async function handleCreateTabGroup({ name, urls, color }) {
+  if (!urls || urls.length === 0) return;
+
+  // Check for an existing group with this name in the focused window
+  const [win] = await chrome.windows.getAll({ windowTypes: ["normal"] });
+  if (!win) return;
+  const groups = await chrome.tabGroups.query({ windowId: win.id });
+  const existing = groups.find((g) => g.title === name);
+
+  const tabIds = [];
+  for (const url of urls) {
+    const tab = await chrome.tabs.create({ url, active: false, windowId: win.id });
+    tabIds.push(tab.id);
+  }
+
+  let groupId;
+  if (existing) {
+    // Add to existing group
+    groupId = existing.id;
+    await chrome.tabs.group({ tabIds, groupId });
+  } else {
+    groupId = await chrome.tabs.group({ tabIds });
+    await chrome.tabGroups.update(groupId, {
+      title: name || "Untitled",
+      color: color || pickColor(name),
+      collapsed: false,
+    });
+  }
+}
+
+async function handleAddToTabGroup({ name, urls }) {
+  if (!urls || urls.length === 0 || !name) return;
+  const [win] = await chrome.windows.getAll({ windowTypes: ["normal"] });
+  if (!win) return;
+  const groups = await chrome.tabGroups.query({ windowId: win.id });
+  const existing = groups.find((g) => g.title === name);
+  if (!existing) {
+    // Fall back to creating a new group
+    await handleCreateTabGroup({ name, urls });
+    return;
+  }
+  const tabIds = [];
+  for (const url of urls) {
+    const tab = await chrome.tabs.create({ url, active: false, windowId: win.id });
+    tabIds.push(tab.id);
+  }
+  await chrome.tabs.group({ tabIds, groupId: existing.id });
+}
+
 // MV3 service workers can't use setInterval reliably, so use the alarms API
 chrome.alarms.create("cs-health-check", { periodInMinutes: 0.25 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "cs-health-check") {
     checkHealth();
+    pollCommands();
   }
 });
 
