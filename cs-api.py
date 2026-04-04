@@ -478,6 +478,8 @@ class Handler(BaseHTTPRequestHandler):
                 cmd.append("--newtree")
             elif newtree:
                 cmd.append(f"--newtree={newtree}")
+            if body.get("no_open"):
+                cmd.append("--no-open")
             try:
                 subprocess.Popen(
                     cmd,

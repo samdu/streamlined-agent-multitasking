@@ -174,21 +174,35 @@ function pickColor(name) {
 async function handleCreateTabGroup({ name, urls, color }) {
   if (!urls || urls.length === 0) return;
 
-  // Check for an existing group with this name in the focused window
   const [win] = await chrome.windows.getAll({ windowTypes: ["normal"] });
   if (!win) return;
+
+  // Reuse existing tabs matching requested URLs (avoids duplicates from cs-spawn)
+  const allTabs = await chrome.tabs.query({ windowId: win.id });
+  const tabIds = [];
+
+  for (const url of urls) {
+    const match = allTabs.find((t) => {
+      if (!t.url) return false;
+      try {
+        const a = new URL(t.url), b = new URL(url);
+        return a.origin === b.origin && a.pathname === b.pathname;
+      } catch { return false; }
+    });
+    if (match) {
+      tabIds.push(match.id);
+    } else {
+      const tab = await chrome.tabs.create({ url, active: false, windowId: win.id });
+      tabIds.push(tab.id);
+    }
+  }
+
+  // Merge into existing group with this name, or create new
   const groups = await chrome.tabGroups.query({ windowId: win.id });
   const existing = groups.find((g) => g.title === name);
 
-  const tabIds = [];
-  for (const url of urls) {
-    const tab = await chrome.tabs.create({ url, active: false, windowId: win.id });
-    tabIds.push(tab.id);
-  }
-
   let groupId;
   if (existing) {
-    // Add to existing group
     groupId = existing.id;
     await chrome.tabs.group({ tabIds, groupId });
   } else {

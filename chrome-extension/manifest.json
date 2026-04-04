@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Code Server Spawn",
-  "version": "3.5",
+  "version": "3.6",
   "description": "Launch code-server instances, auto-group tabs by repo, reconnect dead sessions",
   "permissions": [
     "tabs",
